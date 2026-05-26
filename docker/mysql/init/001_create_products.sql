@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS products (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  api_id VARCHAR(50) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  stock INT NOT NULL,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_products_api_id (api_id),
+  KEY idx_products_deleted_at (deleted_at),
+  CONSTRAINT chk_products_stock_non_negative CHECK (stock >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

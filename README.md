@@ -20,10 +20,13 @@ docker compose -f docker-compose.dev.yml up -d
 구성:
 
 - `frontend`: Next.js (`http://localhost:5005`)
-- `project-spring`: Spring LB (`http://localhost:5010`) -> `backend-spring-1`, `backend-spring-2`
-- `project-fastapi`: FastAPI LB (`http://localhost:5020`) -> `backend-fastapi-1`, `backend-fastapi-2`
+- `project-spring (Spring Ver)`: Spring LB (`http://localhost:5010`) -> `backend-spring-1`, `backend-spring-2`
+- `project-fastapi (FastAPI Ver)`: FastAPI LB (`http://localhost:5020`) -> `backend-fastapi-1`, `backend-fastapi-2`
 - `mysql`: MySQL 8 (`localhost:3306`, 데이터 디렉터리 `./db/mysql`)
 - `redis`: Redis (`localhost:6379`, 데이터 디렉터리 `./db/redis`)
+
+MySQL은 최초 초기화 시 `./docker/mysql/init` 아래 SQL을 실행합니다.
+이미 생성된 `./db/mysql` 볼륨이 있으면 초기화 SQL은 다시 실행되지 않습니다.
 
 상태 확인:
 
