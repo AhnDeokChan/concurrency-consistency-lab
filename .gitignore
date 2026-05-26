@@ -4,3 +4,6 @@
 
 # Do not commit local database/redis data.
 db/
+
+# Local editor settings
+.vscode/settings.json

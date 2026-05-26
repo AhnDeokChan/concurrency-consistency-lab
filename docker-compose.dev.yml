@@ -4,7 +4,7 @@ services:
     image: node:22-alpine
     container_name: frontend-dev
     working_dir: /app
-    command: sh -c "npm install && npm run dev -- -p 5005 --hostname 0.0.0.0"
+    command: sh -c "corepack enable && corepack prepare pnpm@10.5.2 --activate && pnpm install && pnpm dev -- --hostname 0.0.0.0"
     environment:
       NEXT_PUBLIC_SPRING_API_URL: http://localhost:5010
       # NEXT_PUBLIC_FASTAPI_API_URL: http://localhost:5020

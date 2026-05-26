@@ -3,10 +3,12 @@ FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@10.5.2 --activate
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
 EXPOSE 5005
-CMD ["sh", "-c", "npm run build && npm run start"]
+CMD ["sh", "-c", "pnpm build && pnpm start"]
