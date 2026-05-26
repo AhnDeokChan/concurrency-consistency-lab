@@ -1,0 +1,10 @@
+# Portfolio compose files should always be tracked.
+!docker-compose.yml
+!docker-compose.dev.yml
+
+# Keep shared DB/Redis data dirs in repo (requested for portfolio/demo).
+!db/
+!db/mysql/
+!db/redis/
+!db/mysql/.gitkeep
+!db/redis/.gitkeep
