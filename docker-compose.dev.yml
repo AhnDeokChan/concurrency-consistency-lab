@@ -119,7 +119,7 @@ services:
       MYSQL_USER: app
       MYSQL_PASSWORD: app
     ports:
-      - "3306:3306"
+      - "13306:3306"
     volumes:
       - ./db/mysql:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
@@ -136,7 +136,7 @@ services:
     container_name: redis-dev
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "16379:6379"
     volumes:
       - ./db/redis:/data
     healthcheck:
