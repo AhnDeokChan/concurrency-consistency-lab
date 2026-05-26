@@ -4,6 +4,8 @@
 
 # Do not commit local database/redis data.
 db/
+.pnpm-store/
+**/.pnpm-store/
 
 # Local editor settings
 .vscode/settings.json
