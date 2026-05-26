@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "db": true,
+    "db/**": true
+  },
+  "search.exclude": {
+    "db": true,
+    "db/**": true
+  }
+}

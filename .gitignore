@@ -2,9 +2,5 @@
 !docker-compose.yml
 !docker-compose.dev.yml
 
-# Keep shared DB/Redis data dirs in repo (requested for portfolio/demo).
-!db/
-!db/mysql/
-!db/redis/
-!db/mysql/.gitkeep
-!db/redis/.gitkeep
+# Do not commit local database/redis data.
+db/
