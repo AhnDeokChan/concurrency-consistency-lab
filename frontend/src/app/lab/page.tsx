@@ -82,7 +82,7 @@ async function readProduct(
   const res = await fetch(`${baseUrl}/api/products/${productId}`, { signal });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`상품 조회 실패 (${res.status}): ${text || "no response body"}`);
+    throw new Error(`상품 조회 실패 (${res.status}): ${text || "응답 본문 없음"}`);
   }
   return (await res.json()) as ProductPayload;
 }
@@ -95,7 +95,7 @@ async function fetchProductStockOptions(
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
-      `상품 목록 조회 실패 (${res.status}): ${text || "no response body"}`,
+      `상품 목록 조회 실패 (${res.status}): ${text || "응답 본문 없음"}`,
     );
   }
   return (await res.json()) as ProductStockOption[];
@@ -159,7 +159,7 @@ async function performDecreaseRequest(
       status: response.status,
       durationMs: elapsed,
       instance: payload?.instance ?? "-",
-      message: payload?.message ?? response.statusText ?? "Request failed",
+      message: payload?.message ?? response.statusText ?? "요청 실패",
       at: new Date().toISOString(),
     };
   } catch (error) {
@@ -167,12 +167,12 @@ async function performDecreaseRequest(
     const isAbort = error instanceof DOMException && error.name === "AbortError";
     const isStoppedByUser = options.runSignal.aborted;
     const message = isStoppedByUser
-      ? "Stopped by user"
+      ? "사용자가 중지함"
       : isAbort
-        ? "Timeout"
+        ? "요청 시간 초과"
         : error instanceof Error
           ? error.message
-          : "Unknown network error";
+          : "알 수 없는 네트워크 오류";
 
     return {
       index: options.index,
@@ -580,7 +580,7 @@ export default function LabPage() {
                     disabled={productsLoading || isRunning}
                     className="rounded-full border border-[#d2d2d7] bg-white px-3 py-1 text-xs text-[#1d1d1f] transition hover:bg-[#f7f7fa] disabled:cursor-not-allowed disabled:text-[#a1a1aa]"
                   >
-                    {productsLoading ? "Loading..." : "Refresh"}
+                    {productsLoading ? "불러오는 중..." : "새로고침"}
                   </button>
                 </div>
 
@@ -686,7 +686,7 @@ export default function LabPage() {
 
             <div className="mt-5">
               <div className="mb-2 flex items-center justify-between text-xs text-[#71717a]">
-                <span>Status: {runState.toUpperCase()}</span>
+                <span>상태: {runState.toUpperCase()}</span>
                 <span>{progress.toFixed(1)}%</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-[#ececf0]">

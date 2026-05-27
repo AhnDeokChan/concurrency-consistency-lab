@@ -136,7 +136,7 @@ public class ProductService {
 
         String normalized = apiId.trim();
         if (normalized.length() > 50) {
-            throw new IllegalArgumentException("apiId must be 50 characters or fewer.");
+            throw new IllegalArgumentException("apiId는 50자 이하여야 합니다.");
         }
 
         return normalized;
