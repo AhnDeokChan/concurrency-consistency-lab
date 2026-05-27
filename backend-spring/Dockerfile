@@ -1,4 +1,4 @@
-FROM gradle:8.14.3-jdk25 AS builder
+FROM gradle:jdk25-corretto AS builder
 
 WORKDIR /workspace
 COPY build.gradle settings.gradle ./

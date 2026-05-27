@@ -1,0 +1,53 @@
+CREATE TABLE IF NOT EXISTS test_runs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  target VARCHAR(20) NOT NULL,
+  base_url VARCHAR(255) NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  product_api_id VARCHAR(50) NULL,
+  product_name VARCHAR(255) NULL,
+  request_qty INT NOT NULL,
+  total_requests INT NOT NULL,
+  concurrency INT NOT NULL,
+  timeout_ms INT NOT NULL,
+  run_state VARCHAR(20) NOT NULL,
+  start_stock INT NULL,
+  end_stock INT NULL,
+  success_count INT NOT NULL DEFAULT 0,
+  conflict_409_count INT NOT NULL DEFAULT 0,
+  unavailable_503_count INT NOT NULL DEFAULT 0,
+  network_error_count INT NOT NULL DEFAULT 0,
+  aborted_count INT NOT NULL DEFAULT 0,
+  other_count INT NOT NULL DEFAULT 0,
+  avg_latency_ms INT NULL,
+  p95_latency_ms INT NULL,
+  throughput_rps DECIMAL(10,2) NULL,
+  duration_ms INT NULL,
+  started_at TIMESTAMP(6) NULL DEFAULT NULL,
+  finished_at TIMESTAMP(6) NULL DEFAULT NULL,
+  run_error_message VARCHAR(500) NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  KEY idx_test_runs_created_at (created_at),
+  KEY idx_test_runs_target_created_at (target, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS test_request_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  test_run_id BIGINT UNSIGNED NOT NULL,
+  request_index INT NOT NULL,
+  status_label VARCHAR(20) NOT NULL,
+  status_code INT NULL,
+  duration_ms INT NOT NULL,
+  instance_id VARCHAR(100) NULL,
+  message VARCHAR(500) NULL,
+  remaining_stock INT NULL,
+  request_at TIMESTAMP(6) NULL DEFAULT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  KEY idx_test_request_logs_run_id (test_run_id),
+  KEY idx_test_request_logs_run_request_index (test_run_id, request_index),
+  CONSTRAINT fk_test_request_logs_test_run
+    FOREIGN KEY (test_run_id) REFERENCES test_runs (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
