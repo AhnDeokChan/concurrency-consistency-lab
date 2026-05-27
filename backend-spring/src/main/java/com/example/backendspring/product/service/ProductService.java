@@ -4,6 +4,7 @@ import com.example.backendspring.product.api.dto.CreateProductRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockResponse;
 import com.example.backendspring.product.api.dto.ProductResponse;
+import com.example.backendspring.product.api.dto.ProductStockOptionResponse;
 import com.example.backendspring.product.domain.Product;
 import com.example.backendspring.product.domain.ProductRepository;
 import com.example.backendspring.product.exception.DuplicateApiIdException;
@@ -87,6 +88,13 @@ public class ProductService {
         return ProductResponse.from(product, instanceId);
     }
 
+    @Transactional(readOnly = true)
+    public List<ProductStockOptionResponse> listProductStockOptions() {
+        return productRepository.findAllByDeletedAtIsNullOrderByIdAsc().stream()
+                .map(product -> ProductStockOptionResponse.from(product, instanceId))
+                .toList();
+    }
+
     @Transactional
     public DecreaseStockResponse decreaseStock(long productId, DecreaseStockRequest request) {
         int qty = request.qty();
@@ -128,7 +136,7 @@ public class ProductService {
 
         String normalized = apiId.trim();
         if (normalized.length() > 50) {
-            throw new IllegalArgumentException("apiId must be 50 characters or fewer.");
+            throw new IllegalArgumentException("apiId는 50자 이하여야 합니다.");
         }
 
         return normalized;

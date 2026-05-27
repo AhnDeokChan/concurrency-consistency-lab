@@ -5,8 +5,8 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 public record CreateProductRequest(
-        @Size(max = 50, message = "apiId must be 50 characters or fewer.") String apiId,
-        @NotBlank(message = "name is required.") @Size(max = 255, message = "name must be 255 characters or fewer.")
+        @Size(max = 50, message = "apiId는 50자 이하여야 합니다.") String apiId,
+        @NotBlank(message = "name은 필수입니다.") @Size(max = 255, message = "name은 255자 이하여야 합니다.")
         String name,
-        @PositiveOrZero(message = "stock must be zero or positive.") Integer stock) {
+        @PositiveOrZero(message = "stock은 0 이상이어야 합니다.") Integer stock) {
 }

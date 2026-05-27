@@ -48,18 +48,18 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TaskRejectedException.class)
     public ResponseEntity<ApiError> handleTaskRejected(TaskRejectedException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(new ApiError("SERVICE_UNAVAILABLE", "Server is temporarily overloaded.", Instant.now()));
+                .body(new ApiError("SERVICE_UNAVAILABLE", "서버가 일시적으로 과부하 상태입니다.", Instant.now()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         if (isApiIdUniqueViolation(ex)) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiError("DUPLICATE_API_ID", "Duplicate apiId.", Instant.now()));
+                    .body(new ApiError("DUPLICATE_API_ID", "이미 사용 중인 apiId입니다.", Instant.now()));
         }
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError("DATA_INTEGRITY_VIOLATION", "Request conflicts with database constraints.", Instant.now()));
+                .body(new ApiError("DATA_INTEGRITY_VIOLATION", "요청이 데이터베이스 제약조건과 충돌합니다.", Instant.now()));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, ConstraintViolationException.class})
@@ -78,7 +78,7 @@ public class ApiExceptionHandler {
                     }
                     return error.getDefaultMessage();
                 })
-                .orElse("Invalid request.");
+                .orElse("유효하지 않은 요청입니다.");
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ApiError("VALIDATION_ERROR", message, Instant.now()));
@@ -117,13 +117,13 @@ public class ApiExceptionHandler {
         }
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("INTERNAL_ERROR", "Unexpected server error.", Instant.now()));
+                .body(new ApiError("INTERNAL_ERROR", "예기치 않은 서버 오류가 발생했습니다.", Instant.now()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnhandled(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("INTERNAL_ERROR", "Unexpected server error.", Instant.now()));
+                .body(new ApiError("INTERNAL_ERROR", "예기치 않은 서버 오류가 발생했습니다.", Instant.now()));
     }
 
     private boolean isApiIdUniqueViolation(DataIntegrityViolationException ex) {

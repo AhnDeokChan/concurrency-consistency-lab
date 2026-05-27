@@ -4,6 +4,8 @@ import com.example.backendspring.product.api.dto.CreateProductRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockResponse;
 import com.example.backendspring.product.api.dto.ProductResponse;
+import com.example.backendspring.product.api.dto.ProductStockOptionResponse;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,15 @@ public class ProductAsyncService {
     public CompletableFuture<ProductResponse> getProductByApiId(String apiId) {
         try {
             return CompletableFuture.completedFuture(productService.getProductByApiId(apiId));
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    @Async("productTaskExecutor")
+    public CompletableFuture<List<ProductStockOptionResponse>> listProductStockOptions() {
+        try {
+            return CompletableFuture.completedFuture(productService.listProductStockOptions());
         } catch (Exception ex) {
             return CompletableFuture.failedFuture(ex);
         }

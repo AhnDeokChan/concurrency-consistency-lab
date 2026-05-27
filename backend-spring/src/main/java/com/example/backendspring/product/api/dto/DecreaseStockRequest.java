@@ -4,5 +4,5 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record DecreaseStockRequest(
-        @NotNull(message = "qty is required.") @Positive(message = "qty must be greater than zero.") Integer qty) {
+        @NotNull(message = "qty는 필수입니다.") @Positive(message = "qty는 1 이상이어야 합니다.") Integer qty) {
 }
