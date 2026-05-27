@@ -35,7 +35,7 @@ docker compose -f docker-compose.dev.yml up -d mysql redis
 - `redis`: Redis (`localhost:16379`, 데이터 디렉터리 `./db/redis`)
 
 MySQL은 최초 초기화 시 `./docker/mysql/init` 아래 SQL을 실행합니다.
-`001_create_products.sql`로 테이블을 생성하고, `002_seed_products.sql`로 샘플 상품 데이터를 입력합니다.
+`001_create_products.sql`로 테이블을 생성하고, `002_seed_products.sql`로 샘플 상품 20건(랜덤 재고)을 입력합니다.
 이미 생성된 `./db/mysql` 볼륨이 있으면 초기화 SQL은 다시 실행되지 않습니다.
 
 상태 확인:

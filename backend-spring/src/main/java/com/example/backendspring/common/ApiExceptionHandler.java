@@ -4,6 +4,7 @@ import com.example.backendspring.product.exception.DuplicateApiIdException;
 import com.example.backendspring.product.exception.InsufficientStockException;
 import com.example.backendspring.product.exception.LockUnavailableException;
 import com.example.backendspring.product.exception.ProductNotFoundException;
+import com.example.backendspring.testrun.exception.TestRunNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.concurrent.CompletionException;
@@ -43,6 +44,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiError> handleLockUnavailable(LockUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiError("LOCK_UNAVAILABLE", ex.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(TestRunNotFoundException.class)
+    public ResponseEntity<ApiError> handleTestRunNotFound(TestRunNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("TEST_RUN_NOT_FOUND", ex.getMessage(), Instant.now()));
     }
 
     @ExceptionHandler(TaskRejectedException.class)
@@ -102,6 +109,9 @@ public class ApiExceptionHandler {
         }
         if (cause instanceof LockUnavailableException causeEx) {
             return handleLockUnavailable(causeEx);
+        }
+        if (cause instanceof TestRunNotFoundException causeEx) {
+            return handleTestRunNotFound(causeEx);
         }
         if (cause instanceof TaskRejectedException causeEx) {
             return handleTaskRejected(causeEx);

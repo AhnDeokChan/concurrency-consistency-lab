@@ -26,7 +26,126 @@ type RequestLog = {
   durationMs: number;
   instance: string;
   message: string;
+  remainingStock: number | null;
   at: string;
+};
+
+type TestRunRequestLogCreate = {
+  requestIndex: number;
+  statusLabel: string;
+  statusCode: number | null;
+  durationMs: number;
+  instanceId: string | null;
+  message: string | null;
+  remainingStock: number | null;
+  requestAt: string;
+};
+
+type TestRunCreatePayload = {
+  target: string;
+  baseUrl: string;
+  productId: number;
+  productApiId: string | null;
+  productName: string | null;
+  requestQty: number;
+  totalRequests: number;
+  concurrency: number;
+  timeoutMs: number;
+  runState: string;
+  startStock: number | null;
+  endStock: number | null;
+  successCount: number;
+  conflict409Count: number;
+  unavailable503Count: number;
+  networkErrorCount: number;
+  abortedCount: number;
+  otherCount: number;
+  avgLatencyMs: number;
+  p95LatencyMs: number;
+  throughputRps: number;
+  durationMs: number;
+  startedAt: string;
+  finishedAt: string;
+  runErrorMessage: string | null;
+  requestLogs: TestRunRequestLogCreate[];
+};
+
+type SavedRunSummary = {
+  id: number;
+  target: string;
+  runState: string;
+  productId: number;
+  productApiId?: string;
+  productName?: string;
+  requestQty: number;
+  totalRequests: number;
+  concurrency: number;
+  startStock?: number;
+  endStock?: number;
+  successCount: number;
+  conflict409Count: number;
+  unavailable503Count: number;
+  networkErrorCount: number;
+  abortedCount: number;
+  otherCount: number;
+  durationMs?: number;
+  createdAt: string;
+};
+
+type SavedRunRequestLog = {
+  id: number;
+  requestIndex: number;
+  statusLabel: string;
+  statusCode?: number;
+  durationMs: number;
+  instanceId?: string;
+  message?: string;
+  remainingStock?: number;
+  requestAt?: string;
+  createdAt: string;
+};
+
+type SavedRunDetail = {
+  id: number;
+  target: string;
+  baseUrl: string;
+  runState: string;
+  productId: number;
+  productApiId?: string;
+  productName?: string;
+  requestQty: number;
+  totalRequests: number;
+  concurrency: number;
+  timeoutMs: number;
+  startStock?: number;
+  endStock?: number;
+  successCount: number;
+  conflict409Count: number;
+  unavailable503Count: number;
+  networkErrorCount: number;
+  abortedCount: number;
+  otherCount: number;
+  avgLatencyMs?: number;
+  p95LatencyMs?: number;
+  throughputRps?: number;
+  durationMs?: number;
+  startedAt?: string;
+  finishedAt?: string;
+  runErrorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+  requestLogs: SavedRunRequestLog[];
+};
+
+type AggregatedStats = {
+  success: number;
+  conflict409: number;
+  unavailable503: number;
+  aborted: number;
+  networkError: number;
+  other: number;
+  avgMs: number;
+  p95Ms: number;
 };
 
 const SPRING_BASE =
@@ -46,6 +165,60 @@ function p95(values: number[]): number {
 function toInt(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function toDisplayDateTime(value?: string | null): string {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("ko-KR", { hour12: false });
+}
+
+function calculateStats(logs: RequestLog[]): AggregatedStats {
+  let success = 0;
+  let conflict409 = 0;
+  let unavailable503 = 0;
+  let aborted = 0;
+  let networkError = 0;
+  let other = 0;
+  const durations: number[] = [];
+
+  for (const log of logs) {
+    durations.push(log.durationMs);
+    if (log.status === 200) {
+      success += 1;
+    } else if (log.status === 409) {
+      conflict409 += 1;
+    } else if (log.status === 503) {
+      unavailable503 += 1;
+    } else if (log.status === "ABORTED") {
+      aborted += 1;
+    } else if (log.status === "ERROR") {
+      networkError += 1;
+    } else {
+      other += 1;
+    }
+  }
+
+  const avg =
+    durations.length === 0
+      ? 0
+      : Math.round(durations.reduce((acc, cur) => acc + cur, 0) / durations.length);
+
+  return {
+    success,
+    conflict409,
+    unavailable503,
+    aborted,
+    networkError,
+    other,
+    avgMs: avg,
+    p95Ms: Math.round(p95(durations)),
+  };
 }
 
 function formatStatusLabel(status: LogStatus): string {
@@ -68,6 +241,17 @@ function statusBadgeClass(status: LogStatus): string {
     return "bg-[#fff3d9] text-[#8f5e00]";
   }
   return "bg-[#f4f4f5] text-[#52525b]";
+}
+
+function toSavedLogStatus(log: SavedRunRequestLog): LogStatus {
+  if (typeof log.statusCode === "number") {
+    return log.statusCode;
+  }
+  if (log.statusLabel === "ERROR" || log.statusLabel === "ABORTED") {
+    return log.statusLabel;
+  }
+  const asNumber = Number.parseInt(log.statusLabel, 10);
+  return Number.isNaN(asNumber) ? "ERROR" : asNumber;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -99,6 +283,54 @@ async function fetchProductStockOptions(
     );
   }
   return (await res.json()) as ProductStockOption[];
+}
+
+async function createTestRun(
+  baseUrl: string,
+  payload: TestRunCreatePayload,
+): Promise<SavedRunSummary> {
+  const res = await fetch(`${baseUrl}/api/test-runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `실행 로그 저장 실패 (${res.status}): ${text || "응답 본문 없음"}`,
+    );
+  }
+  return (await res.json()) as SavedRunSummary;
+}
+
+async function fetchSavedRuns(
+  baseUrl: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<SavedRunSummary[]> {
+  const res = await fetch(`${baseUrl}/api/test-runs?limit=${limit}`, { signal });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `실행 이력 조회 실패 (${res.status}): ${text || "응답 본문 없음"}`,
+    );
+  }
+  return (await res.json()) as SavedRunSummary[];
+}
+
+async function fetchSavedRunDetail(
+  baseUrl: string,
+  runId: number,
+  signal?: AbortSignal,
+): Promise<SavedRunDetail> {
+  const res = await fetch(`${baseUrl}/api/test-runs/${runId}`, { signal });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `실행 상세 조회 실패 (${res.status}): ${text || "응답 본문 없음"}`,
+    );
+  }
+  return (await res.json()) as SavedRunDetail;
 }
 
 type RequestOptions = {
@@ -139,7 +371,7 @@ async function performDecreaseRequest(
     const contentType = response.headers.get("content-type") ?? "";
     const payload = contentType.includes("application/json")
       ? ((await response.json()) as
-          | { instance?: string; message?: string }
+          | { instance?: string; message?: string; remainingStock?: number }
           | undefined)
       : undefined;
 
@@ -150,6 +382,10 @@ async function performDecreaseRequest(
         durationMs: elapsed,
         instance: payload?.instance ?? "-",
         message: "OK",
+        remainingStock:
+          typeof payload?.remainingStock === "number"
+            ? payload.remainingStock
+            : null,
         at: new Date().toISOString(),
       };
     }
@@ -160,6 +396,7 @@ async function performDecreaseRequest(
       durationMs: elapsed,
       instance: payload?.instance ?? "-",
       message: payload?.message ?? response.statusText ?? "요청 실패",
+      remainingStock: null,
       at: new Date().toISOString(),
     };
   } catch (error) {
@@ -180,6 +417,7 @@ async function performDecreaseRequest(
       durationMs: elapsed,
       instance: "-",
       message,
+      remainingStock: null,
       at: new Date().toISOString(),
     };
   } finally {
@@ -209,9 +447,24 @@ export default function LabPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [endedAtMs, setEndedAtMs] = useState<number | null>(null);
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [savedRuns, setSavedRuns] = useState<SavedRunSummary[]>([]);
+  const [savedRunsLoading, setSavedRunsLoading] = useState(false);
+  const [savedRunsError, setSavedRunsError] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [selectedRunDetail, setSelectedRunDetail] = useState<SavedRunDetail | null>(
+    null,
+  );
+  const [selectedRunLoading, setSelectedRunLoading] = useState(false);
+  const [selectedRunError, setSelectedRunError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const optionsAbortRef = useRef<AbortController | null>(null);
+  const savedRunsAbortRef = useRef<AbortController | null>(null);
+  const savedRunDetailAbortRef = useRef<AbortController | null>(null);
 
   const baseUrl = useMemo(() => {
     if (target === "spring") return SPRING_BASE;
@@ -229,50 +482,7 @@ export default function LabPage() {
     return [...logs].sort((a, b) => a.index - b.index);
   }, [logs]);
 
-  const stats = useMemo(() => {
-    let success = 0;
-    let conflict409 = 0;
-    let unavailable503 = 0;
-    let aborted = 0;
-    let networkError = 0;
-    let other = 0;
-    const durations: number[] = [];
-
-    for (const log of logs) {
-      durations.push(log.durationMs);
-      if (log.status === 200) {
-        success += 1;
-      } else if (log.status === 409) {
-        conflict409 += 1;
-      } else if (log.status === 503) {
-        unavailable503 += 1;
-      } else if (log.status === "ABORTED") {
-        aborted += 1;
-      } else if (log.status === "ERROR") {
-        networkError += 1;
-      } else {
-        other += 1;
-      }
-    }
-
-    const avg =
-      durations.length === 0
-        ? 0
-        : Math.round(
-            durations.reduce((acc, cur) => acc + cur, 0) / durations.length,
-          );
-
-    return {
-      success,
-      conflict409,
-      unavailable503,
-      aborted,
-      networkError,
-      other,
-      avgMs: avg,
-      p95Ms: Math.round(p95(durations)),
-    };
-  }, [logs]);
+  const stats = useMemo(() => calculateStats(logs), [logs]);
 
   const qty = toInt(qtyInput, 1);
   const expectedStock =
@@ -341,16 +551,122 @@ export default function LabPage() {
     }
   }
 
+  async function loadSavedRunSummaries(preferredRunId?: number) {
+    if (target !== "spring") {
+      savedRunDetailAbortRef.current?.abort();
+      setSavedRuns([]);
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      setSelectedRunLoading(false);
+      setSavedRunsError("현재는 Spring 대상 서버에서만 실행 로그 저장/조회가 가능합니다.");
+      return;
+    }
+
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    savedRunsAbortRef.current?.abort();
+    const controller = new AbortController();
+    savedRunsAbortRef.current = controller;
+
+    setSavedRunsLoading(true);
+    setSavedRunsError(null);
+
+    try {
+      const runs = await fetchSavedRuns(normalizedBaseUrl, 30, controller.signal);
+      setSavedRuns(runs);
+      setSelectedRunId((prev) => {
+        if (typeof preferredRunId === "number") {
+          return preferredRunId;
+        }
+        if (prev !== null && runs.some((run) => run.id === prev)) {
+          return prev;
+        }
+        return runs[0]?.id ?? null;
+      });
+      if (runs.length === 0) {
+        savedRunDetailAbortRef.current?.abort();
+        setSelectedRunDetail(null);
+        setSelectedRunError(null);
+        setSelectedRunLoading(false);
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setSavedRuns([]);
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      setSavedRunsError(
+        error instanceof Error
+          ? error.message
+          : "실행 이력을 불러오는 중 오류가 발생했습니다.",
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setSavedRunsLoading(false);
+      }
+    }
+  }
+
+  async function loadSavedRunDetail(runId: number) {
+    if (target !== "spring") {
+      setSelectedRunDetail(null);
+      return;
+    }
+
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    savedRunDetailAbortRef.current?.abort();
+    const controller = new AbortController();
+    savedRunDetailAbortRef.current = controller;
+
+    setSelectedRunLoading(true);
+    setSelectedRunError(null);
+
+    try {
+      const detail = await fetchSavedRunDetail(
+        normalizedBaseUrl,
+        runId,
+        controller.signal,
+      );
+      setSelectedRunDetail(detail);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setSelectedRunDetail(null);
+      setSelectedRunError(
+        error instanceof Error
+          ? error.message
+          : "실행 상세를 불러오는 중 오류가 발생했습니다.",
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setSelectedRunLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadProductOptions();
+    void loadSavedRunSummaries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
+
+  useEffect(() => {
+    if (selectedRunId === null || target !== "spring") {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSavedRunDetail(selectedRunId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRunId, target]);
 
   useEffect(() => {
     return () => {
       optionsAbortRef.current?.abort();
       abortRef.current?.abort();
+      savedRunsAbortRef.current?.abort();
+      savedRunDetailAbortRef.current?.abort();
     };
   }, []);
 
@@ -373,24 +689,35 @@ export default function LabPage() {
     );
     const requestTimeoutMs = Math.max(toInt(timeoutInput, 200), 200);
     const requestQty = Math.max(toInt(qtyInput, 1), 1);
+    const selectedProductSnapshot = selectedProduct;
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const startedPerf = performance.now();
+    const startedAtIso = new Date().toISOString();
 
     setRunError(null);
+    setSaveState("idle");
+    setSaveMessage(null);
     setRunState("running");
     setLogs([]);
     setProgress(0);
     setInitialStock(null);
     setActualStock(null);
-    setStartedAtMs(performance.now());
+    setStartedAtMs(startedPerf);
     setEndedAtMs(null);
 
     let doneCount = 0;
     let cursor = 1;
+    const runLogs: RequestLog[] = [];
+    let startStockValue: number | null = null;
+    let endStockValue: number | null = null;
+    let finalRunState = "DONE";
+    let finalRunErrorMessage: string | null = null;
 
     try {
       const before = await readProduct(normalizedBaseUrl, productId, controller.signal);
+      startStockValue = before.stock;
       setInitialStock(before.stock);
 
       async function worker() {
@@ -413,6 +740,7 @@ export default function LabPage() {
             runSignal: controller.signal,
           });
 
+          runLogs.push(log);
           doneCount += 1;
           setLogs((prev) => [...prev, log]);
           setProgress((doneCount / totalRequests) * 100);
@@ -425,21 +753,105 @@ export default function LabPage() {
 
       if (!controller.signal.aborted) {
         const after = await readProduct(normalizedBaseUrl, productId, controller.signal);
+        endStockValue = after.stock;
         setActualStock(after.stock);
         await loadProductOptions();
+      } else {
+        finalRunState = "ABORTED";
       }
 
       setRunState("done");
     } catch (error) {
       if (controller.signal.aborted) {
+        finalRunState = "ABORTED";
         setRunState("done");
       } else {
+        finalRunState = "ERROR";
+        finalRunErrorMessage =
+          error instanceof Error ? error.message : "실행 중 오류";
         setRunState("error");
-        setRunError(error instanceof Error ? error.message : "실행 중 오류");
+        setRunError(finalRunErrorMessage);
       }
     } finally {
-      setEndedAtMs(performance.now());
+      const endedPerf = performance.now();
+      const finishedAtIso = new Date().toISOString();
+      setEndedAtMs(endedPerf);
       abortRef.current = null;
+
+      const runDurationMs = Math.max(Math.round(endedPerf - startedPerf), 0);
+      const runStats = calculateStats(runLogs);
+      const elapsedSecondsSafe = Math.max((endedPerf - startedPerf) / 1000, 0);
+      const throughputRps =
+        elapsedSecondsSafe <= 0 ? 0 : runLogs.length / elapsedSecondsSafe;
+
+      if (target === "spring" && runLogs.length > 0) {
+        const numericProductId = Number.parseInt(productId, 10);
+        if (Number.isNaN(numericProductId)) {
+          setSaveState("error");
+          setSaveMessage("실행 로그 저장을 위한 상품 ID 변환에 실패했습니다.");
+          return;
+        }
+
+        const payload: TestRunCreatePayload = {
+          target,
+          baseUrl: normalizedBaseUrl,
+          productId: numericProductId,
+          productApiId: selectedProductSnapshot?.apiId ?? null,
+          productName: selectedProductSnapshot?.name ?? null,
+          requestQty,
+          totalRequests,
+          concurrency: concurrentWorkers,
+          timeoutMs: requestTimeoutMs,
+          runState: finalRunState,
+          startStock: startStockValue,
+          endStock: endStockValue,
+          successCount: runStats.success,
+          conflict409Count: runStats.conflict409,
+          unavailable503Count: runStats.unavailable503,
+          networkErrorCount: runStats.networkError,
+          abortedCount: runStats.aborted,
+          otherCount: runStats.other,
+          avgLatencyMs: runStats.avgMs,
+          p95LatencyMs: runStats.p95Ms,
+          throughputRps,
+          durationMs: runDurationMs,
+          startedAt: startedAtIso,
+          finishedAt: finishedAtIso,
+          runErrorMessage: finalRunErrorMessage,
+          requestLogs: runLogs.map((log) => ({
+            requestIndex: log.index,
+            statusLabel:
+              typeof log.status === "number" ? String(log.status) : log.status,
+            statusCode: typeof log.status === "number" ? log.status : null,
+            durationMs: log.durationMs,
+            instanceId: log.instance === "-" ? null : log.instance,
+            message: log.message || null,
+            remainingStock: log.remainingStock,
+            requestAt: log.at,
+          })),
+        };
+
+        setSaveState("saving");
+        setSaveMessage("실행 로그를 저장하는 중입니다...");
+        try {
+          const savedRun = await createTestRun(normalizedBaseUrl, payload);
+          setSaveState("saved");
+          setSaveMessage(`실행 로그 저장 완료 (ID: ${savedRun.id})`);
+          await loadSavedRunSummaries(savedRun.id);
+        } catch (error) {
+          setSaveState("error");
+          setSaveMessage(
+            error instanceof Error
+              ? error.message
+              : "실행 로그 저장 중 오류가 발생했습니다.",
+          );
+        }
+      } else if (target !== "spring") {
+        setSaveState("idle");
+        setSaveMessage(
+          "현재는 Spring 대상 서버에서만 실행 로그 저장을 지원합니다.",
+        );
+      }
     }
   }
 
@@ -460,6 +872,8 @@ export default function LabPage() {
     setEndedAtMs(null);
     setRunState("idle");
     setRunError(null);
+    setSaveState("idle");
+    setSaveMessage(null);
   }
 
   const runDisabled =
@@ -702,6 +1116,17 @@ export default function LabPage() {
                 {runError}
               </p>
             ) : null}
+            {saveMessage ? (
+              <p
+                className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                  saveState === "error"
+                    ? "border-[#f8d3d3] bg-[#fff2f2] text-[#9f1f1f]"
+                    : "border-[#d7e7ff] bg-[#f2f7ff] text-[#1f4f8f]"
+                }`}
+              >
+                {saveMessage}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-4">
@@ -815,6 +1240,206 @@ export default function LabPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-[#d9d9dd] bg-white p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-xl font-semibold tracking-[-0.02em]">
+                  저장된 실행 로그
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => void loadSavedRunSummaries()}
+                  disabled={savedRunsLoading}
+                  className="rounded-full border border-[#d2d2d7] bg-white px-3 py-1 text-xs text-[#1d1d1f] transition hover:bg-[#f7f7fa] disabled:cursor-not-allowed disabled:text-[#a1a1aa]"
+                >
+                  {savedRunsLoading ? "불러오는 중..." : "새로고침"}
+                </button>
+              </div>
+
+              {savedRunsError ? (
+                <p className="mt-3 rounded-lg border border-[#f8d3d3] bg-[#fff2f2] px-3 py-2 text-xs text-[#9f1f1f]">
+                  {savedRunsError}
+                </p>
+              ) : null}
+
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-[#ececf0] bg-[#fcfcfd] p-3">
+                  <p className="mb-2 text-xs text-[#71717a]">
+                    실행 이력 목록 (행 클릭 시 아래 상세 표시)
+                  </p>
+                  <div className="max-h-[240px] overflow-auto rounded-lg border border-[#ececf0] bg-white">
+                    <table className="min-w-[620px] w-full text-left text-sm">
+                      <thead className="sticky top-0 bg-[#fafafc] text-[#71717a]">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Run ID</th>
+                          <th className="px-3 py-2 font-medium">상태</th>
+                          <th className="px-3 py-2 font-medium">성공</th>
+                          <th className="px-3 py-2 font-medium">생성시각</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {savedRuns.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-3 py-8 text-center text-[#8a8a93]"
+                            >
+                              저장된 실행 로그가 없습니다.
+                            </td>
+                          </tr>
+                        ) : (
+                          savedRuns.map((run) => (
+                            <tr
+                              key={run.id}
+                              onClick={() => setSelectedRunId(run.id)}
+                              className={`cursor-pointer border-t border-[#f1f1f4] transition ${
+                                selectedRunId === run.id
+                                  ? "bg-[#eef5ff]"
+                                  : "hover:bg-[#f8faff]"
+                              }`}
+                            >
+                              <td className="px-3 py-2 font-medium text-[#1d1d1f]">
+                                {run.id}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                    run.runState === "DONE"
+                                      ? "bg-[#e8f5ee] text-[#0a7a3f]"
+                                      : run.runState === "ERROR"
+                                        ? "bg-[#ffe8e8] text-[#b42318]"
+                                        : "bg-[#eef2ff] text-[#3730a3]"
+                                  }`}
+                                >
+                                  {run.runState}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-[#4b4b54]">
+                                {run.successCount}/{run.totalRequests}
+                              </td>
+                              <td className="px-3 py-2 text-[#4b4b54]">
+                                {toDisplayDateTime(run.createdAt)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#ececf0] bg-[#fcfcfd] p-4">
+                  {selectedRunLoading ? (
+                    <p className="text-sm text-[#6b6b74]">
+                      실행 상세를 불러오는 중입니다...
+                    </p>
+                  ) : selectedRunError ? (
+                    <p className="rounded-lg border border-[#f8d3d3] bg-[#fff2f2] px-3 py-2 text-sm text-[#9f1f1f]">
+                      {selectedRunError}
+                    </p>
+                  ) : !selectedRunDetail ? (
+                    <p className="text-sm text-[#6b6b74]">
+                      위 실행 이력에서 항목을 선택하세요.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">Run ID</p>
+                          <p className="mt-1 font-semibold">{selectedRunDetail.id}</p>
+                        </div>
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">상품</p>
+                          <p className="mt-1 font-semibold">
+                            {selectedRunDetail.productName ?? "-"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">상태</p>
+                          <p className="mt-1 font-semibold">
+                            {selectedRunDetail.runState}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">총 요청</p>
+                          <p className="mt-1 font-semibold">
+                            {selectedRunDetail.totalRequests}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">성공</p>
+                          <p className="mt-1 font-semibold text-[#0a7a3f]">
+                            {selectedRunDetail.successCount}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[#ececf0] bg-white px-3 py-2">
+                          <p className="text-xs text-[#71717a]">소요시간</p>
+                          <p className="mt-1 font-semibold">
+                            {selectedRunDetail.durationMs ?? 0} ms
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 max-h-[260px] overflow-auto rounded-xl border border-[#ececf0] bg-white">
+                        <table className="w-full text-left text-sm">
+                          <thead className="sticky top-0 bg-[#fafafc] text-[#71717a]">
+                            <tr>
+                              <th className="px-3 py-2 font-medium">#</th>
+                              <th className="px-3 py-2 font-medium">Status</th>
+                              <th className="px-3 py-2 font-medium">Latency</th>
+                              <th className="px-3 py-2 font-medium">Instance</th>
+                              <th className="px-3 py-2 font-medium">Message</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedRunDetail.requestLogs.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-3 py-6 text-center text-[#8a8a93]"
+                                >
+                                  저장된 요청 로그가 없습니다.
+                                </td>
+                              </tr>
+                            ) : (
+                              selectedRunDetail.requestLogs.map((log) => {
+                                const status = toSavedLogStatus(log);
+                                return (
+                                  <tr
+                                    key={log.id}
+                                    className="border-t border-[#f1f1f4]"
+                                  >
+                                    <td className="px-3 py-2 text-[#6b6b74]">
+                                      {log.requestIndex}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span
+                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}
+                                      >
+                                        {formatStatusLabel(status)}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {log.durationMs} ms
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {log.instanceId ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2 text-[#5f5f66]">
+                                      {log.message ?? "-"}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
