@@ -1,0 +1,71 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "frontend:dev",
+      "type": "shell",
+      "command": "corepack pnpm dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "NEXT_PUBLIC_SPRING_API_URL": "http://localhost:5010"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "ready - started server on|Ready in|Local:"
+        }
+      }
+    },
+    {
+      "label": "spring:bootRun (local infra)",
+      "type": "shell",
+      "command": "./gradlew bootRun",
+      "options": {
+        "cwd": "${workspaceFolder}/backend-spring",
+        "env": {
+          "SPRING_DATASOURCE_URL": "jdbc:mysql://localhost:13306/app?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+          "SPRING_DATASOURCE_USERNAME": "app",
+          "SPRING_DATASOURCE_PASSWORD": "app",
+          "SPRING_DATA_REDIS_HOST": "localhost",
+          "SPRING_DATA_REDIS_PORT": "16379",
+          "APP_CORS_ALLOWED_ORIGINS": "http://localhost:5005",
+          "GRADLE_USER_HOME": "${workspaceFolder}/backend-spring/.gradle-user-home"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Started .* in .* seconds|Started BackendSpringApplication in"
+        }
+      }
+    },
+    {
+      "label": "dev:run all",
+      "dependsOn": [
+        "frontend:dev",
+        "spring:bootRun (local infra)"
+      ],
+      "dependsOrder": "parallel"
+    }
+  ]
+}

@@ -4,8 +4,9 @@ import com.example.backendspring.product.api.dto.CreateProductRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockResponse;
 import com.example.backendspring.product.api.dto.ProductResponse;
-import com.example.backendspring.product.service.ProductService;
+import com.example.backendspring.product.service.ProductAsyncService;
 import jakarta.validation.Valid;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,38 +22,38 @@ import org.springframework.web.bind.annotation.RestController;
 // 요청/응답 검증과 HTTP 매핑만 담당하고, 비즈니스 로직은 서비스 계층에 위임합니다.
 public class ProductController {
 
-    private final ProductService productService;
+    private final ProductAsyncService productAsyncService;
 
-    public ProductController(ProductService productService) {
-        this.productService = productService;
+    public ProductController(ProductAsyncService productAsyncService) {
+        this.productAsyncService = productAsyncService;
     }
 
     @PostMapping
-    public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody CreateProductRequest request) {
-        ProductResponse response = productService.createProduct(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public CompletableFuture<ResponseEntity<ProductResponse>> createProduct(@Valid @RequestBody CreateProductRequest request) {
+        return productAsyncService.createProduct(request)
+                .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
     }
 
     @GetMapping("/{productId}")
-    public ProductResponse getProduct(@PathVariable long productId) {
-        return productService.getProduct(productId);
+    public CompletableFuture<ProductResponse> getProduct(@PathVariable long productId) {
+        return productAsyncService.getProduct(productId);
     }
 
     @GetMapping("/api-id/{apiId}")
-    public ProductResponse getProductByApiId(@PathVariable String apiId) {
-        return productService.getProductByApiId(apiId);
+    public CompletableFuture<ProductResponse> getProductByApiId(@PathVariable String apiId) {
+        return productAsyncService.getProductByApiId(apiId);
     }
 
     @PostMapping("/{productId}/decrease")
-    public DecreaseStockResponse decreaseStock(
+    public CompletableFuture<DecreaseStockResponse> decreaseStock(
             @PathVariable long productId,
             @Valid @RequestBody DecreaseStockRequest request) {
-        return productService.decreaseStock(productId, request);
+        return productAsyncService.decreaseStock(productId, request);
     }
 
     @DeleteMapping("/{productId}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable long productId) {
-        productService.softDeleteProduct(productId);
-        return ResponseEntity.noContent().build();
+    public CompletableFuture<ResponseEntity<Void>> deleteProduct(@PathVariable long productId) {
+        return productAsyncService.softDeleteProduct(productId)
+                .thenApply(unused -> ResponseEntity.noContent().build());
     }
 }

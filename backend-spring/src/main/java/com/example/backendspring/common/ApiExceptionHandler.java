@@ -6,6 +6,9 @@ import com.example.backendspring.product.exception.LockUnavailableException;
 import com.example.backendspring.product.exception.ProductNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,8 +45,19 @@ public class ApiExceptionHandler {
                 .body(new ApiError("LOCK_UNAVAILABLE", ex.getMessage(), Instant.now()));
     }
 
+    @ExceptionHandler(TaskRejectedException.class)
+    public ResponseEntity<ApiError> handleTaskRejected(TaskRejectedException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiError("SERVICE_UNAVAILABLE", "Server is temporarily overloaded.", Instant.now()));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        if (isApiIdUniqueViolation(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("DUPLICATE_API_ID", "Duplicate apiId.", Instant.now()));
+        }
+
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiError("DATA_INTEGRITY_VIOLATION", "Request conflicts with database constraints.", Instant.now()));
     }
@@ -70,10 +84,64 @@ public class ApiExceptionHandler {
                 .body(new ApiError("VALIDATION_ERROR", message, Instant.now()));
     }
 
+    @ExceptionHandler({CompletionException.class, ExecutionException.class})
+    public ResponseEntity<ApiError> handleAsyncWrappedException(Exception ex) {
+        Throwable cause = ex.getCause();
+        if (cause == null) {
+            return handleUnhandled(ex);
+        }
+
+        if (cause instanceof ProductNotFoundException causeEx) {
+            return handleProductNotFound(causeEx);
+        }
+        if (cause instanceof InsufficientStockException causeEx) {
+            return handleInsufficientStock(causeEx);
+        }
+        if (cause instanceof DuplicateApiIdException causeEx) {
+            return handleDuplicateApiId(causeEx);
+        }
+        if (cause instanceof LockUnavailableException causeEx) {
+            return handleLockUnavailable(causeEx);
+        }
+        if (cause instanceof TaskRejectedException causeEx) {
+            return handleTaskRejected(causeEx);
+        }
+        if (cause instanceof DataIntegrityViolationException causeEx) {
+            return handleDataIntegrityViolation(causeEx);
+        }
+        if (cause instanceof ConstraintViolationException causeEx) {
+            return handleBadRequest(causeEx);
+        }
+        if (cause instanceof IllegalArgumentException causeEx) {
+            return handleBadRequest(causeEx);
+        }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiError("INTERNAL_ERROR", "Unexpected server error.", Instant.now()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnhandled(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError("INTERNAL_ERROR", "Unexpected server error.", Instant.now()));
+    }
+
+    private boolean isApiIdUniqueViolation(DataIntegrityViolationException ex) {
+        String message = null;
+
+        if (ex.getMostSpecificCause() != null) {
+            message = ex.getMostSpecificCause().getMessage();
+        }
+        if (message == null) {
+            message = ex.getMessage();
+        }
+        if (message == null) {
+            return false;
+        }
+
+        String normalized = message.toLowerCase();
+        return normalized.contains("uq_products_api_id")
+                || normalized.contains("products.api_id");
     }
 
     public record ApiError(String code, String message, Instant timestamp) {

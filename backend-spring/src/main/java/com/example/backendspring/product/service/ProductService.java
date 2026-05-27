@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -57,17 +58,19 @@ public class ProductService {
 
         // 외부 연동용 apiId는 요청값을 우선 사용하고, 없으면 서버에서 생성합니다.
         String apiId = normalizeOrGenerateApiId(request.apiId());
-        if (productRepository.existsByApiIdAndDeletedAtIsNull(apiId)) {
-            throw new DuplicateApiIdException(apiId);
-        }
 
         Product product = new Product();
         product.setApiId(apiId);
         product.setName(request.name().trim());
         product.setStock(initialStock);
 
-        Product saved = productRepository.save(product);
-        return ProductResponse.from(saved, instanceId);
+        try {
+            Product saved = productRepository.saveAndFlush(product);
+            return ProductResponse.from(saved, instanceId);
+        } catch (DataIntegrityViolationException ex) {
+            // apiId는 소프트 삭제 여부와 상관없이 전체 테이블에서 유일해야 합니다.
+            throw new DuplicateApiIdException(apiId);
+        }
     }
 
     @Transactional(readOnly = true)

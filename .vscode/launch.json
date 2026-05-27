@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend Dev (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "corepack pnpm dev",
+      "cwd": "${workspaceFolder}/frontend",
+      "env": {
+        "NEXT_PUBLIC_SPRING_API_URL": "http://localhost:5010"
+      }
+    },
+    {
+      "name": "Spring Boot (Local Infra)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "./gradlew bootRun",
+      "cwd": "${workspaceFolder}/backend-spring",
+      "env": {
+        "SPRING_DATASOURCE_URL": "jdbc:mysql://localhost:13306/app?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+        "SPRING_DATASOURCE_USERNAME": "app",
+        "SPRING_DATASOURCE_PASSWORD": "app",
+        "SPRING_DATA_REDIS_HOST": "localhost",
+        "SPRING_DATA_REDIS_PORT": "16379",
+        "APP_CORS_ALLOWED_ORIGINS": "http://localhost:5005",
+        "GRADLE_USER_HOME": "${workspaceFolder}/backend-spring/.gradle-user-home"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run: Frontend + Spring",
+      "configurations": [
+        "Frontend Dev (pnpm)",
+        "Spring Boot (Local Infra)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

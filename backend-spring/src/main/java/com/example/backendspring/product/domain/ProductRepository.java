@@ -12,8 +12,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Optional<Product> findByApiIdAndDeletedAtIsNull(String apiId);
 
-    boolean existsByApiIdAndDeletedAtIsNull(String apiId);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     // 재고가 음수가 되지 않도록 조건을 건 뒤, 재고 차감을 원자적으로 수행합니다.
     @Query("""
