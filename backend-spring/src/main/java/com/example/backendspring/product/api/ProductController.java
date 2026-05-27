@@ -4,8 +4,10 @@ import com.example.backendspring.product.api.dto.CreateProductRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockResponse;
 import com.example.backendspring.product.api.dto.ProductResponse;
+import com.example.backendspring.product.api.dto.ProductStockOptionResponse;
 import com.example.backendspring.product.service.ProductAsyncService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +44,11 @@ public class ProductController {
     @GetMapping("/api-id/{apiId}")
     public CompletableFuture<ProductResponse> getProductByApiId(@PathVariable String apiId) {
         return productAsyncService.getProductByApiId(apiId);
+    }
+
+    @GetMapping("/stock-options")
+    public CompletableFuture<List<ProductStockOptionResponse>> listProductStockOptions() {
+        return productAsyncService.listProductStockOptions();
     }
 
     @PostMapping("/{productId}/decrease")

@@ -1,5 +1,6 @@
 package com.example.backendspring.product.domain;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,6 +12,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByIdAndDeletedAtIsNull(Long id);
 
     Optional<Product> findByApiIdAndDeletedAtIsNull(String apiId);
+
+    List<Product> findAllByDeletedAtIsNullOrderByIdAsc();
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     // 재고가 음수가 되지 않도록 조건을 건 뒤, 재고 차감을 원자적으로 수행합니다.

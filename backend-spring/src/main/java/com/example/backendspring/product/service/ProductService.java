@@ -4,6 +4,7 @@ import com.example.backendspring.product.api.dto.CreateProductRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockRequest;
 import com.example.backendspring.product.api.dto.DecreaseStockResponse;
 import com.example.backendspring.product.api.dto.ProductResponse;
+import com.example.backendspring.product.api.dto.ProductStockOptionResponse;
 import com.example.backendspring.product.domain.Product;
 import com.example.backendspring.product.domain.ProductRepository;
 import com.example.backendspring.product.exception.DuplicateApiIdException;
@@ -85,6 +86,13 @@ public class ProductService {
         Product product = productRepository.findByApiIdAndDeletedAtIsNull(apiId)
                 .orElseThrow(() -> new ProductNotFoundException(apiId));
         return ProductResponse.from(product, instanceId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductStockOptionResponse> listProductStockOptions() {
+        return productRepository.findAllByDeletedAtIsNullOrderByIdAsc().stream()
+                .map(product -> ProductStockOptionResponse.from(product, instanceId))
+                .toList();
     }
 
     @Transactional
